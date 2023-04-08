@@ -23,7 +23,7 @@ resource "aws_instance" "dev" {
     Name = "My Instance ${count.index}"
   }
 
-  vpc_security_group_ids = [ "sg-03d909a79e4dbaa31" ]
+  vpc_security_group_ids = [ "${aws_security_group.acesso_ssh.id}" ]
 }
 
 resource "aws_security_group" "acesso_ssh" {
@@ -40,5 +40,41 @@ resource "aws_security_group" "acesso_ssh" {
 
   tags = {
     Name = "acesso_ssh"
+  }
+}
+
+resource "aws_instance" "dev4" {
+  ami           = "ami-06e46074ae430fba6"
+  instance_type = "t2.micro"
+  key_name      = "terraform-aws"
+
+  tags = {
+    Name = "dev4 for S3 Bucket"
+  }
+
+  vpc_security_group_ids = [ "${aws_security_group.acesso_ssh.id}" ]
+  depends_on = [
+    aws_s3_bucket.dev4
+  ]
+}
+
+resource "aws_instance" "dev5" {
+  ami           = "ami-06e46074ae430fba6"
+  instance_type = "t2.micro"
+  key_name      = "terraform-aws"
+
+  tags = {
+    Name = "dev5"
+  }
+
+  vpc_security_group_ids = [ "${aws_security_group.acesso_ssh.id}" ]
+}
+
+resource "aws_s3_bucket" "dev4" {
+  bucket = "camargor-dev4"
+  acl = "private"
+
+  tags = {
+    Name = "camargor-dev4"
   }
 }

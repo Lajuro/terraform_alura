@@ -258,3 +258,105 @@ Agora para podermos acessar uma das instâncias EC2, devemos fazer o seguinte:
 - Digite `yes` para confirmar a conexão
 - Caso tenha definido, digite a senha da chave privada
 - Pronto, você está conectado na instância EC2
+
+## Adicionando referências entre resources
+
+Vamos adicionar uma referência entre o Security Group e as instâncias EC2, para isso, no arquivo `main.tf`, vamos adicionar o seguinte conteúdo:
+
+```hcl
+# [...]
+resource "aws_instance" "dev" {
+  # [...]
+  vpc_security_group_ids = [ "${aws_security_group.acesso_ssh.id}" ]
+}
+```
+
+Você consegue descobrir essa variável ao executar o comando `terraform show` e no recurso do security group você deverá ver um comentário como `# aws_security_group.acesso_ssh` e logo abaixo dele você verá a variável `id` que é a variável que estamos usando para fazer a referência.
+
+Ao executar o comando `terraform plan` irá mostrar que não existe nenhuma mudança, isso porque já executamos anteriormente, porém estava com o id adicionado diretamente no código, agora estamos usando a referência.
+
+## Criando um Bucket S3
+
+Vamos criar um Bucket S3, para isso, no arquivo `main.tf`, vamos adicionar o seguinte conteúdo:
+
+```hcl
+# [...]
+resource "aws_s3_bucket" "dev4" {
+  bucket = "camargor-dev4"
+  acl = "private"
+
+  tags = {
+    Name = "camargor-dev4"
+  }
+}
+```
+
+### Explicando o código adicionado
+
+- `resource` - Define o resource `aws_s3_bucket` que será provisionado
+  - `bucket` - Define o nome do Bucket S3
+  - `acl` - Define o controle de acesso do Bucket S3
+  - `tags` - Define as tags que serão adicionadas ao Bucket S3
+
+Agora, como já fizemos antes, execute o comando `terraform plan` para ver as mudanças, porém não execute o `terraform apply` ainda, pois vamos fazer algumas alterações antes.
+
+### Adicionando a referência do Bucket S3 na instância EC2
+
+Vamos primeiramente criar uma nova instância EC2, para isso, no arquivo `main.tf`, vamos adicionar o seguinte conteúdo:
+
+```hcl
+# [...]
+
+resource "aws_instance" "dev4" {
+  ami           = "ami-06e46074ae430fba6"
+  instance_type = "t2.micro"
+  key_name      = "terraform-aws"
+
+  tags = {
+    Name = "dev4 for S3 Bucket"
+  }
+
+  vpc_security_group_ids = [ "${aws_security_group.acesso_ssh.id}" ]
+}
+
+resource "aws_instance" "dev5" {
+  ami           = "ami-06e46074ae430fba6"
+  instance_type = "t2.micro"
+  key_name      = "terraform-aws"
+
+  tags = {
+    Name = "dev5"
+  }
+
+  vpc_security_group_ids = [ "${aws_security_group.acesso_ssh.id}" ]
+}
+
+resource "aws_s3_bucket" "dev4" {
+  # [...]
+}
+```
+
+Criamos já duas instâncias EC2, uma chamada `dev4` e outra chamada `dev5`, a instância `dev4` será a instância que irá acessar o Bucket S3, então vamos adicionar a referência do Bucket S3 na instância `dev4`, para isso, no arquivo `main.tf`, vamos adicionar o seguinte conteúdo:
+
+```hcl
+# [...]
+
+resource "aws_instance" "dev4" {
+  ami           = "ami-06e46074ae430fba6"
+  instance_type = "t2.micro"
+  key_name      = "terraform-aws"
+
+  tags = {
+    Name = "dev4 for S3 Bucket"
+  }
+
+  vpc_security_group_ids = [ "${aws_security_group.acesso_ssh.id}" ]
+  depends_on = [
+    aws_s3_bucket.dev4
+  ]
+}
+
+# [...]
+```
+
+Foi adicionado o parâmetro `depends_on` na instância `dev4` para que a instância só seja criada após o Bucket S3 ser criado. Agora então execute o comando `terraform plan` e `terraform apply` para fazer o deploy da infraestrutura.
